@@ -120,7 +120,7 @@ class InceptionI3d(nn.Module):
 
     @nn.compact
     def __call__(
-        self, inputs: jnp.ndarray, is_training: bool, dropout_keep_prob: float = 1.0
+        self, inputs: jnp.ndarray, is_training: bool = False, dropout_keep_prob: float = 1.0
     ):
         # Inputs: B x T x 224 x 224 x 3 in range [-1, 1]
         if self.final_endpoint not in VALID_ENDPOINTS:
