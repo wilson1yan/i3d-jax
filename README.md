@@ -10,8 +10,12 @@ For convenience, we provide a wrapper to run inference on input videos
 import i3d_jax
 import numpy as np
 
-video = np.random.randn(1, 16, 224, 224, 3) # B x T x H x W x C
+video = np.random.randn(1, 16, 224, 224, 3) # B x T x H x W x C in [-1, 1]
 i3d = i3d_jax.I3DWrapper(replicate=False) # set to True to auto-use pmap
+
+# out returns a tuple of:
+# 1) logits
+# 2) a dictionary mapping endpoint names to features at each endpoint
 out = i3d(video)
 ```
 
@@ -23,5 +27,5 @@ import i3d_jax
 i3d_model = i3d_jax.InceptionI3d()
 
 # Load variables (params + batch_stats)
-variables = i3d_jax.load_params(replicate=False)
+variables = i3d_jax.load_variables(replicate=False)
 ```

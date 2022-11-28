@@ -27,4 +27,4 @@ class I3DWrapper:
         fn = self.i3d.apply
         if self.replicate:
             fn = jax.pmap(fn)
-        return fn(video)
+        return fn(self.variables, video)
