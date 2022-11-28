@@ -13,11 +13,11 @@ def main(args):
 
     # Convert to mapping TF name -> numpy array
     tf_vars = {name: tf_var.value().numpy() 
-               for name, tf_var in zip(tf_vars, names)}
+               for name, tf_var in zip(names, tf_vars)}
     flax_vars, flax_batch_stats = {}, {}
 
     def get_remove(name):
-        assert tf_vars.get(name, None) is not None
+        assert tf_vars.get(name, None) is not None, f"{name} not found"
         weight = tf_vars[name]
         tf_vars[name] = None
         return weight
@@ -55,7 +55,11 @@ def main(args):
 
         # Branch 2
         update(f"Branch_2/Conv3d_0a_1x1")
-        update(f"Branch_2/Conv3d_0b_3x3")
+        if prefix == "Mixed_5b":
+            # Typo in original: https://github.com/deepmind/kinetics-i3d/blob/0667e889a5904b4dc122e0ded4c332f49f8df42c/i3d.py#L417
+            update(f"Branch_2/Conv3d_0a_3x3")
+        else:
+            update(f"Branch_2/Conv3d_0b_3x3")
 
         # Branch 3
         update(f"Branch_3/Conv3d_0b_1x1")
@@ -63,10 +67,11 @@ def main(args):
         return vars, batch_stats
 
 
-    def add(prefix, module):
-        vars, batch_stats = module(prefix)
+    def add(prefix, module, **kwargs):
+        vars, batch_stats = module(prefix, **kwargs)
         flax_vars[prefix] = vars
-        flax_batch_stats[prefix] = batch_stats
+        if len(batch_stats) > 0:
+            flax_batch_stats[prefix] = batch_stats
 
     add("Conv3d_1a_7x7", unit3d)
     add("Conv3d_2b_1x1", unit3d)
@@ -82,7 +87,10 @@ def main(args):
     add("Mixed_5b", inception_module)
     add("Mixed_5c", inception_module)
 
-    add("Logits/Conv3d_0c_1x1")
+    add("Logits/Conv3d_0c_1x1", unit3d, 
+        use_bias=True, use_batch_norm=False)
+
+    assert all([v is None for v in tf_vars.values()])
 
     state = {"params": flax_vars, "batch_stats": flax_batch_stats}
     os.makedirs(osp.dirname(args.output), exist_ok=True)
