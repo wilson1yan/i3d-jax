@@ -2,7 +2,7 @@ import argparse
 import pickle
 import os
 import os.path as osp
-
+import numpy as np
 import tensorflow_hub as hub
 
 
@@ -30,7 +30,7 @@ def main(args):
 
         batch_stats = {} 
         if use_batch_norm:
-            vars["BatchNorm_0"] = {"bias": get_remove(f"{prefix}/batch_norm/beta:0")}
+            vars["BatchNorm_0"] = {"bias": np.squeeze(get_remove(f"{prefix}/batch_norm/beta:0"))}
             batch_stats["BatchNorm_0"] = {
                 "mean": get_remove(f"{prefix}/batch_norm/moving_mean:0"),
                 "var": get_remove(f"{prefix}/batch_norm/moving_variance:0")
@@ -42,27 +42,27 @@ def main(args):
         vars, batch_stats = {}, {}
 
         def update(sub_prefix):
-            v, b = unit3d(f"{prefix}/{sub_prefix}")
+            # Typo in original: https://github.com/deepmind/kinetics-i3d/blob/0667e889a5904b4dc122e0ded4c332f49f8df42c/i3d.py#L417
+            if prefix == "Mixed_5b" and sub_prefix == "Branch_2/Conv3d_0b_3x3":
+                v, b = unit3d(f"{prefix}/Branch_2/Conv3d_0a_3x3")
+            else:
+                v, b = unit3d(f"{prefix}/{sub_prefix}")
             vars[sub_prefix] = v
             batch_stats[sub_prefix] = b
 
         # Branch 0
-        update(f"Branch_0/Conv3d_0a_1x1")
+        update("Branch_0/Conv3d_0a_1x1")
 
         # Branch 1
-        update(f"Branch_1/Conv3d_0a_1x1")
-        update(f"Branch_1/Conv3d_0b_3x3")
+        update("Branch_1/Conv3d_0a_1x1")
+        update("Branch_1/Conv3d_0b_3x3")
 
         # Branch 2
-        update(f"Branch_2/Conv3d_0a_1x1")
-        if prefix == "Mixed_5b":
-            # Typo in original: https://github.com/deepmind/kinetics-i3d/blob/0667e889a5904b4dc122e0ded4c332f49f8df42c/i3d.py#L417
-            update(f"Branch_2/Conv3d_0a_3x3")
-        else:
-            update(f"Branch_2/Conv3d_0b_3x3")
+        update("Branch_2/Conv3d_0a_1x1")
+        update("Branch_2/Conv3d_0b_3x3")
 
         # Branch 3
-        update(f"Branch_3/Conv3d_0b_1x1")
+        update("Branch_3/Conv3d_0b_1x1")
 
         return vars, batch_stats
 

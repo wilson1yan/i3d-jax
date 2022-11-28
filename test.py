@@ -1,6 +1,7 @@
 import pickle
 import argparse
 import numpy as np
+import tensorflow as tf
 import tensorflow_hub as hub
 import jax
 
@@ -23,15 +24,16 @@ def main():
 
     # Compare outputs
     x = np.random.randn(4, 16, 224, 224, 3)
-    tf_logits, tf_out = tf_model(x)
+    tf_logits = tf_model(tf.convert_to_tensor(x, dtype=tf.float32)).numpy()
     
-    flax_logits, flax_out = flax_model.apply(
+    flax_logits, _ = flax_model.apply(
         flax_state,
         x,
         is_training=False
     )
+    flax_logits = jax.device_get(flax_logits)
 
-    import ipdb; ipdb.set_trace()
+    assert np.allclose(tf_logits, flax_logits, atol=1e-2, rtol=1e-2), np.max(np.abs(tf_logits - flax_logits))
     
     print("Passed")
     

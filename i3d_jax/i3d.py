@@ -29,8 +29,8 @@ VALID_ENDPOINTS = (
 # https://github.com/deepmind/kinetics-i3d/blob/0667e889a5904b4dc122e0ded4c332f49f8df42c/i3d.py#L32
 class Unit3D(nn.Module):
     output_channels: int 
-    kernel_shape: Tuple[int]
-    stride: Tuple[int]
+    kernel_shape: Tuple[int] = (1, 1, 1)
+    stride: Tuple[int] = (1, 1, 1)
     activation_fn: Callable[[jnp.ndarray], jnp.ndarray] = nn.relu
     use_batch_norm: bool = True
     use_bias: bool = False
@@ -48,9 +48,9 @@ class Unit3D(nn.Module):
             # Match Sonnet v1 BatchNorm: https://github.com/deepmind/sonnet/blob/v1/sonnet/python/modules/batch_norm.py
             net = nn.BatchNorm(
                 momentum=0.999,
-                eps=1e-3,
+                epsilon=1e-3,
                 use_scale=False,
-                use_running_average=is_training
+                use_running_average=not is_training
             )(net)
         if self.activation_fn is not None:
             net = self.activation_fn(net)
@@ -98,8 +98,7 @@ class InceptionModule(nn.Module):
             net,
             window_shape=(3, 3, 3),
             strides=(1, 1, 1),
-            padding="SAME",
-            name="Branch_3/MaxPool3d_0a_3x3"
+            padding="SAME"
         )
         branch_3 = Unit3D(
             output_channels=self.out_channels[5],
@@ -142,10 +141,9 @@ class InceptionI3d(nn.Module):
         end_point = "MaxPool3d_2a_3x3"
         net = nn.max_pool(
             net,
-            window_shape=[1, 3, 3],
-            strides=[1, 2, 2],
-            padding="SAME",
-            name=end_point
+            window_shape=(1, 3, 3),
+            strides=(1, 2, 2),
+            padding="SAME"
         )
         end_points[end_point] = net
         if self.final_endpoint == end_point: return net, end_points
@@ -171,10 +169,9 @@ class InceptionI3d(nn.Module):
         end_point = "MaxPool3d_3a_3x3"
         net = nn.max_pool(
             net,
-            window_shape=[1, 3, 3],
-            strides=[1, 2, 2],
-            padding="SAME",
-            name=end_point
+            window_shape=(1, 3, 3),
+            strides=(1, 2, 2),
+            padding="SAME"
         )
         end_points[end_point] = net
         if self.final_endpoint == end_point: return net, end_points
@@ -198,10 +195,9 @@ class InceptionI3d(nn.Module):
         end_point = "MaxPool3d_4a_3x3"
         net = nn.max_pool(
             net,
-            window_shape=[3, 3, 3],
-            strides=[2, 2, 2],
-            padding="SAME",
-            name=end_point
+            window_shape=(3, 3, 3),
+            strides=(2, 2, 2),
+            padding="SAME"
         )
         end_points[end_point] = net
         if self.final_endpoint == end_point: return net, end_points
@@ -251,8 +247,7 @@ class InceptionI3d(nn.Module):
             net,
             window_shape=(2, 2, 2),
             strides=(2, 2, 2),
-            padding="SAME",
-            name=end_point
+            padding="SAME"
         )
         end_points[end_point] = net
         if self.final_endpoint == end_point: return net, end_points
@@ -276,11 +271,11 @@ class InceptionI3d(nn.Module):
         end_point = "Logits"
         net = nn.avg_pool(
             net,
-            window_shape=[2, 7, 7],
+            window_shape=(2, 7, 7),
             strides=(1, 1, 1),
             padding="VALID"
         )
-        net = nn.Dropout(dropout_keep_prob, deterministic=not is_training)(net)
+        net = nn.Dropout(1. - dropout_keep_prob, deterministic=not is_training)(net)
         logits = Unit3D(
             output_channels=self.num_classes,
             kernel_shape=(1, 1, 1),
@@ -293,7 +288,7 @@ class InceptionI3d(nn.Module):
             logits = jnp.squeeze(logits, [2, 3])
         averaged_logits = jnp.mean(logits, axis=1)        
         end_points[end_point] = averaged_logits
-        if self.final_endpoint == end_point: return net, end_points
+        if self.final_endpoint == end_point: return averaged_logits, end_points
 
         end_point = "Predictions"
         predictions = jax.nn.softmax(averaged_logits)
